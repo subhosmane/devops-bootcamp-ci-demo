@@ -85,21 +85,32 @@ jobs:
             ./scripts/e2e-ci.sh
 
   package:
-    docker:
-      - image: circleci/node:lts
+    machine: true
     environment:
-      NODE_ENV: production
+      ECR: 883220488588.dkr.ecr.ap-southeast-2.amazonaws.com
+      reponame: bootcamp-container-repo
     steps:
       - checkout
-      - install_deps
+
       - run:
-          name: Package
+          name: Set up
+          command: |
+            mkdir -p artifacts
+
+            # install AWS CLI
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+
+      - run: 
+          name: Build image
           command: |
             cd src
-            npm pack
-      - store_artifacts:
-          path: ./src/simpletodoapp-1.0.0.tgz
-          destionaion: ./simpletodoapp-1.0.0.tgz
+            export IMAGE_TAG=${ECR}/${reponame}:${CIRCLE_SHA1}
+            echo ${IMAGE_TAG} > ../artifacts/image.txt
+            docker build -t ${IMAGE_TAG} .
+            aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin ${ECR}
+            docker push ${IMAGE_TAG}
 
 workflows:
   build-and-packge:
