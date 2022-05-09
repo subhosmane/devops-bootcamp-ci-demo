@@ -11,126 +11,17 @@ jobs:
   ci-build:
     docker:
       - image: circleci/node:lts
-    environment:
-      JEST_JUNIT_OUTPUT_DIR: test-output/
     steps:
       - checkout
       - install_deps
-      - run:
-          name: Run lint
-          command: |
-            npm run test-lint --prefix src/
-      - run:
-          name: Run unit tests
-          command: |
-            npm run test-unit --prefix src/
-      - run:
-          name: Validate Coverage
-          command: |
-            cd src/
-            bash <(curl -s https://codecov.io/bash)
-      - store_test_results:
-          path: src/test-output/
-  
-  sast:
-    docker:
-      - image: circleci/node:lts
-    steps:
-      - checkout
-      - run:
-          name: Install NodeJsScan
-          command: |
-            sudo apt update
-            sudo apt install python3-pip
-            pip3 install nodejsscan
-      - run:
-          name: Execute Node Scan
-          command: |
-            nodejsscan -d ./src -o sast-output.json
-      - store_artifacts:
-          path: sast-output.json
-      - run:
-          name: Parse Sast Report
-          command:
-            exit $(cat sast-output.json | jq .total_count.sec)
-
-  integration-test:
-    docker:
-      - image: circleci/node:lts
-      - image: mongo:4.0
-    environment:
-      JEST_JUNIT_OUTPUT_DIR: test-output/
-    steps:
-      - checkout
-      - install_deps
-      - run:
-          name: Run integration tests
-          command:
-            npm run test-integration --prefix src/
-      - store_test_results:
-          path: src/test-output/
-  
-  e2e-test:
-    machine:
-      image: circleci/classic:latest
-    environment:
-      QAW_HEADLESS: true
-    steps: 
-      - checkout
-      - run:
-          name: End 2 end tests
-          no_output_timeout: 2m
-          command: |
-            chmod +x scripts/e2e-ci.sh
-            ./scripts/e2e-ci.sh
-
-  package:
-    machine: true
-    environment:
-      ECR: 883220488588.dkr.ecr.ap-southeast-2.amazonaws.com
-      reponame: bootcamp-container-repo
-    steps:
-      - checkout
-
-      - run:
-          name: Set up
-          command: |
-            mkdir -p artifacts
-
-            # install AWS CLI
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install
-
-      - run: 
-          name: Build image
-          command: |
-            cd src
-            export IMAGE_TAG=${ECR}/${reponame}:${CIRCLE_SHA1}
-            echo ${IMAGE_TAG} > ../artifacts/image.txt
-            docker build -t ${IMAGE_TAG} .
-            aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin ${ECR}
-            docker push ${IMAGE_TAG}
 
 workflows:
   build-and-packge:
     jobs:
       - ci-build
-      - integration-test:
-          requires:
-            - ci-build
-      - sast:
-          requires:
-            - ci-build
-      - e2e-test:
-          requires:
-            - integration-test
-            - ci-build
       - package:
           requires:
-            - integration-test
-            - sast
-            - e2e-test
+            - ci-build
           filters:
             branches:
               only:
