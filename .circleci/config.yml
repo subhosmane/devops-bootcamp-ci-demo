@@ -19,10 +19,4 @@ workflows:
   build-and-packge:
     jobs:
       - ci-build
-      - package:
-          requires:
-            - ci-build
-          filters:
-            branches:
-              only:
-                - master
+
