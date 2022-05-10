@@ -7,6 +7,14 @@ commands:
           command: |
             npm ci --prefix src/
 
+jobs:
+  ci-build:
+    docker:
+      - image: circleci/node:lts
+    steps:
+      - checkout
+      - install_deps
+
 package:
   docker:
     - image: circleci/node:lts
@@ -20,13 +28,6 @@ package:
     - store_artifacts:
       path: ./src/simpletodoapp-1.0.0.tgz
       destination: simpletodoapp-1.0.0.tgz
-jobs:
-  ci-build:
-    docker:
-      - image: circleci/node:lts
-    steps:
-      - checkout
-      - install_deps
 
 workflows:
   build-and-packge:
