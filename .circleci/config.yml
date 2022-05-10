@@ -11,10 +11,49 @@ jobs:
   ci-build:
     docker:
       - image: circleci/node:lts
+    environment:
+      JEST_JUNIT_OUTPUT_DIR: test_output/
     steps:
       - checkout
       - install_deps
-  
+      - run:
+          name: Run lint
+          command: |
+            npm run test-lint --prefix src/
+      - run:
+          name: Run unit tests
+          command: |
+            npm run test-unit --prefix src/
+
+  integration-tests:
+    docker:
+      - image: circleci/node:lts
+      - image: mango:4.0
+    environment:
+      JEST_JUNIT_OUTPUT_DIR: test_output/
+    steps:
+      - checkout
+      - install_deps
+      - run:
+          name: Run integration tests
+          command: |
+            npm run test-integration --prefix src/
+      - store_test_results:
+          path: src/test-output/
+  e2e-test:
+    machine:
+      image: circleci/classic:latest
+    environment:
+      QAW_HEADLESS: true
+    steps: 
+      - checkout
+      - run:
+          name: End 2 end tests
+          no_output_timeout: 2m
+          command: |
+            chmod +x scripts/e2e-ci.sh
+            ./scripts/e2e-ci.sh
+
   package:
     docker:
       - image: circleci/node:lts
@@ -33,9 +72,16 @@ workflows:
   build-and-package:
     jobs:
       - ci-build
-      - package:
+      - integration-test:
           requires:
             - ci-build
+      - e2e-test:
+          requires:
+            - integration-test
+            - ci-build
+      - package:
+          requires:
+            - e2e-test
           filters:
             branches:
               only:
